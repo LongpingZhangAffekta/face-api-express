@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <script src="face-api.js"></script>
+<!--    <script src="face-api.js"></script>-->
+    <script src="face-api.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.9.0/localforage.min.js"></script>
-    <!--  <script src="localforage/src/localforage.js"></script>-->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="js/commons.js"></script>
     <script src="js/faceDetectionControls.js"></script>
     <link rel="stylesheet" href="styles.css">
@@ -13,7 +14,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.100.2/js/materialize.min.js"></script>
 </head>
 <body>
-<!--<div id="navbar"></div>-->
 <div class="center-content page-container">
 
     <div class="progress" id="loader">
@@ -25,7 +25,11 @@
 
     <div style="position: relative" class="margin hidden" id="video-container">
         <video onloadedmetadata="onPlay(this)" id="inputVideo" autoplay muted playsinline></video>
-        <canvas id="overlay"/>
+        <canvas id="overlay"></canvas>
+    </div>
+
+    <div class="chart-container">
+        <canvas id="emotionChart"></canvas>
     </div>
 
     <div class="row side-by-side">
@@ -122,6 +126,48 @@
 
 </body>
 <script>
+    let emotionChart;
+
+    function initializeChart() {
+        const ctx = document.getElementById('emotionChart').getContext('2d');
+        emotionChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Angry', 'Disgusted', 'Fearful', 'Happy', 'Neutral', 'Sad', 'Surprised'],
+                datasets: [{
+                    label: 'Emotions',
+                    data: [0, 0, 0, 0, 0, 0, 0],
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.2)',
+                        'rgba(54, 162, 235, 0.2)',
+                        'rgba(255, 206, 86, 0.2)',
+                        'rgba(75, 192, 192, 0.2)',
+                        'rgba(153, 102, 255, 0.2)',
+                        'rgba(255, 159, 64, 0.2)',
+                        'rgba(199, 199, 199, 0.2)'
+                    ],
+                    borderColor: [
+                        'rgba(255, 99, 132, 1)',
+                        'rgba(54, 162, 235, 1)',
+                        'rgba(255, 206, 86, 1)',
+                        'rgba(75, 192, 192, 1)',
+                        'rgba(153, 102, 255, 1)',
+                        'rgba(255, 159, 64, 1)',
+                        'rgba(199, 199, 199, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+
     localforage.config({
         name: 'face-api-detections'
     });
@@ -158,7 +204,7 @@
         }
         // Store updated running averages in localforage
         localforage.setItem('runningAverages', runningAverages).then(() => {
-            console.log(runningAverages);
+            // console.log(runningAverages);
         }).catch((err) => {
             console.error('Error saving running averages:', err);
         });
@@ -174,7 +220,7 @@
         const ts = Date.now();
 
         const result = await faceapi.detectSingleFace(videoEl, options)
-            // .withFaceLandmarks()
+            .withFaceLandmarks()
             .withFaceExpressions();
 
         updateTimeStats(Date.now() - ts);
@@ -202,6 +248,20 @@
 
             // Update running averages with the detected emotions
             updateRunningAverages(result.expressions);
+
+            // Update the chart with the latest emotions
+            const emotionData = [
+                result.expressions.angry,
+                result.expressions.disgusted,
+                result.expressions.fearful,
+                result.expressions.happy,
+                result.expressions.neutral,
+                result.expressions.sad,
+                result.expressions.surprised
+            ];
+
+            emotionChart.data.datasets[0].data = emotionData;
+            emotionChart.update();
 
             const canvas = $('#overlay').get(0);
             const dims = faceapi.matchDimensions(canvas, videoEl, true);
@@ -244,6 +304,7 @@
     $(document).ready(function () {
         // renderNavBar('#navbar', 'webcam_face_expression_recognition');
         initFaceDetectionControls();
+        initializeChart();
         run();
     });
 </script>
